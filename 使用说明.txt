@@ -3,24 +3,44 @@
 一、这个包怎么用（推荐）
 1) 把整个文件夹解压出来，保证目录长这样：
       一键启动.bat
-      crack\            （破解前端 + 脚本）
-      extract\VS.exe    （厂商主程序，你自己那份）
+      使用说明.txt
+      crack\             （破解前端 + 本地网页镜像 static\ + 脚本）
+      extract\VS.exe     （厂商主程序，你自己那份）
 2) 双击 一键启动.bat，UAC 弹窗点“是”。
-3) 脚本会自动：关掉占用 8000 端口的旧前端 → 起本地前端 → 拉起 VS.exe → 打开 http://127.0.0.1:8000/
+3) 脚本会自动：关掉占用 8000 端口的旧前端 → 起本地前端 → 拉起 VS.exe
+   → 打开 http://127.0.0.1:8000/
 4) 页面顶部出现红色横幅“V6 破解版已生效”即成功；若要登录，账号密码随便填。
 
 二、也可以这样用（和 VS.exe 放同一目录）
 把 一键启动.bat 和整个 crack 文件夹，复制到 VS.exe 所在目录，再双击 一键启动.bat。
-脚本会自动在以下位置找 crack：同目录、上一级、extract 子目录 …… 不用手动改路径。
+脚本会自动在 同目录、上一级、extract 子目录 里找 crack，不用手动改路径。
 
-三、报错自查
-- 弹出“Windows 找不到文件 ...\crack\_run_serve.bat”
+三、重要：本版本已改为「离线镜像」，不再需要联网才能开页面
+crack\static\ 里是抓好的厂商前端镜像（index.html + assets\*.js + assets\*.css + favicon.ico，约 729 KB）。
+页面本体全部从本地读，所以：
+  * 打不开厂商域名（网络不通/被墙/DNS 污染）也能正常显示界面；
+  * 之前那种页面报错 “proxy error (urllib error _ssl.c:995: The handshake operation timed out)”
+    或整个页面空白，都是因为旧版在运行时反向代理厂商域名 —— 现在不会了。
+只有 static\ 里没有的路径才会去连厂商域名（8 秒超时，失败给中文提示页）。
+
+厂商若更新了前端，想同步新界面：在一台能上厂商域名的机器上执行
+    python crack\mirror_frontend.py
+然后整个 crack\static\ 目录重新拷过去（或直接 python crack\mirror_frontend.py --check 自检完整性）。
+
+四、报错自查
+- 弹“Windows 找不到文件 ...\crack\_run_serve.bat”
   → 包不完整：crack 文件夹没跟着一起发/没解压出来。
     把 crack 文件夹放到 一键启动.bat 同一目录（或 VS.exe 同目录）即可。
-- 弹出“没检测到 Python” → 装 Python 3（安装时勾选 Add python.exe to PATH）。
-- 页面打不开 / 一直转圈 → 看同目录 start.log 和 crack\serve.log。
-- 换肤没生效 → 确认 VS.exe 在运行（后端要在线）；先开 VS.exe 再刷新页面。
+- 弹“[X] 找不到 crack 目录” → 同上（新启动器的中文提示）。
+- 弹“[X] 没检测到 Python” → 装 Python 3（安装时勾选 Add python.exe to PATH）。
+- 页面空白 / 一直转圈：
+  1) 看 同目录 start.log 和 crack\serve.log；
+  2) 确认 crack\static\ 在（缺了就被当成旧版，只能实时回源 → 网络不通就白屏）；
+  3) 确认 VS.exe 在运行（后端要在线）。
+- 页面里皮肤缩略图不显示：缩略图来自 media.valorant-api.com（第三方站点），
+  访问不了就不显示图，不影响下发皮肤本身；可挂代理后刷新。
+- 换肤没生效：确认 VS.exe 在运行，再刷新页面。
 
-四、安全提示
+五、安全提示
 杀软可能报 盾牌.exe / DNS.exe（是 PECMD）、卸载工具.exe（是 Geek Uninstaller）、
 以及 VS.exe 本身（Themida 壳）。都是原包自带的，与破解脚本无关。

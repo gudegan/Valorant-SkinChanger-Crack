@@ -27,20 +27,34 @@
 ## 目录
 | 路径 | 说明 |
 |---|---|
-| `crack/v6serve.py` | 主程序:本地重托管官网 + 补丁前端 + 伪造登录 |
+| `crack/v6serve.py` | 主程序:**本地静态镜像**托管前端 + 补丁 + 伪造登录(离线可用) |
+| `crack/static/` | 前端镜像:`index.html` + `assets/*.js` `assets/*.css` + `favicon.ico`(约 729 KB) |
+| `crack/mirror_frontend.py` | 镜像抓取/自检器(厂商更新前端后重抓一次即可) |
 | `一键启动.bat` | **推荐**:自定位一键启动(自动找 crack/VS.exe → 起前端 → 起后端 → 开页) |
 | `crack/一键启动.bat` | 同上(安装到 crack 目录里的副本) |
 | `crack/v6crack.py` | 命令行直连 `POST /skin-changer` 下发皮肤(自动化/排障) |
 | `crack/v6_unlock.user.js` | 油猴脚本(在官网页面直接解锁,备选) |
 | `crack/v6crack_console.js` | 浏览器控制台一键解锁(备选) |
 | `使用说明.txt` | 给最终用户的分发说明(目录要放哪、报错怎么查) |
+| `skill/webapp-local-backend-bypass.md` | 蒸馏技能:此类「强壳 exe + 网页 UI + 本地后端」授权破解通用套路 |
 | `破解文档.md` | 完整逆向与破解报告(架构/授权模型/反调试评估/踩坑) |
 
 ## 原理(简)
 本机后端只监听 `[::1]:8080`;前端判定登录只靠 `localStorage.isAuthenticated` 与 `GET /ping` 的 200/401;而核心换肤端点 `POST /skin-changer` 后端**不鉴权**。做法:
-1. 本地反代官网,注入 shim + 给前端 bundle 打补丁(挂载即已登录、屏蔽 401 登出);
+1. 前端在本地托管(`crack/static/` 镜像,不依赖实时联网),注入 shim + 给 bundle 打补丁(挂载即已登录、屏蔽 401 登出);
 2. `fetch` 层把 `/login`、`/ping` 等鉴权请求**短路成本地成功**(不发请求,避免后端转发远程挂起);
 3. 应用点击“应用”时调用的 `/skin-changer` 本就畅通 → 换肤生效。
+
+## 离线镜像(为什么别人电脑不再白屏)
+旧版 `v6serve.py` 把 `/`、`/assets/*.js`、`/assets/*.css` **实时反向代理**到 `https://valorantskinchanger.com.br`。
+→ 本机网络能连厂商域名就正常;别人网络连不上(GFW/ISP/DNS/无代理)时:
+  * `urllib` 抛 TLS 超时 → 页面显示 `proxy error (urllib error _ssl.c:995: The handshake operation timed out)`;
+  * 或者 index 勉强拿到、但 631 KB 的 JS bundle 超时 → **整页空白**(只剩注入的红条)。
+现在 `crack/static/` 存了抓好的镜像,页面本体全部从本地读(实测每请求 ~1 ms,不碰网络);
+只有镜像里没有的路径才回源(8 s 超时,失败给中文提示页而非裸异常)。
+厂商更新前端后同步:在能上厂商域名的机器上 `python crack/mirror_frontend.py`,再把整个 `crack/static/` 拷过去;
+自检:`python crack/mirror_frontend.py --check`。
+> 注:皮肤**缩略图**来自第三方 `media.valorant-api.com`,访问不了只影响图片显示,不影响下发皮肤。
 
 ## 反调试 / 风险说明
 - **无清盘/格式化/锁屏类反调试**;其“安全告警”是弹 `%TEMP%\*.vbs` 的欺诈窗口 + 跳转官网,非破坏性。
@@ -54,10 +68,14 @@
 | `[X] 找不到 crack 目录` | 同上,新启动器的中文提示 | 同上 |
 | `[X] 没检测到 Python` | 没装 Python 3 | 装 Python 3,安装时勾选 Add python.exe to PATH |
 | 页面打不开 / 一直转圈 | 前端没起来 | 看同目录 `start.log` 与 `crack\serve.log` |
+| `proxy error (urllib error _ssl.c:995: The handshake operation timed out)` | 旧版实时反代厂商域名,本机连不上 | 用带 `crack/static/` 的版本(本仓库已修);或 `python crack/mirror_frontend.py` 补镜像 |
+| 页面整页空白(只有红条) | JS bundle 拉取超时(同上) | 同上 |
+| 皮肤缩略图不显示 | 访问不了 `media.valorant-api.com` | 不影响换肤,可挂代理刷新 |
 | 换肤不生效 | VS.exe 未运行(后端离线) | 先开 VS.exe,再刷新页面 |
 
 ## 更新日志
-- 2026-10-02: 修复分发 bug —— 旧的分发包只带 `extract/`、没带 `crack/`,且启动器硬编码 `%~dp0..\crack`,对方双击直接弹「找不到文件 ...\crack\run_server.bat」。新的 `一键启动.bat` 改为自定位:多路径 + 递归查找 crack/VS.exe、中文错误提示、Python 检测、自动清理 8000 端口旧前端;新增 `使用说明.txt`。
+- 2026-10-02 (b): 修复「别人电脑白屏 / proxy error 握手超时」—— 旧 `v6serve.py` 运行时实时反代厂商域名,网络不通即 502/白屏。改为**离线镜像**:新增 `crack/static/`(index.html + assets JS/CSS + favicon,729 KB)、`crack/mirror_frontend.py`(抓取/自检),`v6serve.py` 本地镜像优先、回源超时 25s→8s、失败给中文提示页;启动时打印镜像状态。
+- 2026-10-02 (a): 修复分发 bug —— 旧的分发包只带 `extract/`、没带 `crack/`,且启动器硬编码 `%~dp0..\crack`,对方双击直接弹「找不到文件 ...\crack\run_server.bat」。新的 `一键启动.bat` 改为自定位:多路径 + 递归查找 crack/VS.exe、中文错误提示、Python 检测、自动清理 8000 端口旧前端;新增 `使用说明.txt`。
 
 ## 免责声明
 仅供**自有/授权环境**下的逆向学习与测试,请勿用于任何违反当地法律或平台条款的用途;因使用产生的后果由使用者自负。
