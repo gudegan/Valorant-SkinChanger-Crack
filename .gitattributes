@@ -1,0 +1,17 @@
+# 换行符策略:发给别人的包/仓库 zip 下载出来必须是「bat=CRLF、静态镜像=原样」
+* text=auto
+
+# Windows 批处理必须 CRLF,否则 cmd 解析多行 if/for 块会乱(实测 LF-only 会报「此时不应有 do」)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# 脚本/文档 LF
+*.py  text eol=lf
+*.md  text eol=lf
+*.txt text eol=lf
+*.sh  text eol=lf
+
+# 前端镜像按二进制存,避免 checkout 时被改字节(需与厂商原始文件逐字节一致)
+crack/static/** -text
+*.ico -text
